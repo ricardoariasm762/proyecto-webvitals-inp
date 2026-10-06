@@ -92,6 +92,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
           offloadToWorker: Boolean(audit.offloadToWorker),
           yieldMainThread: Boolean(audit.yieldMainThread)
         });
+        if (audit.backendOffline) {
+          this.backendStatus.set('OFFLINE');
+        } else if (audit.backendOffline === false) {
+          this.backendStatus.set('ONLINE');
+        }
       }
     });
   }
