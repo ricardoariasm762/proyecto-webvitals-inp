@@ -1,0 +1,370 @@
+<div class="auditor-shell">
+  <!-- Top Navigation & Header -->
+  <header class="auditor-header">
+    <div class="header-branding">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="header-title">Event Loop Telemetry & INP Auditor</h1>
+        <p class="header-subtitle">Monitoreo continuo de concurrencia y optimización predictiva con IA (ONNX Runtime)</p>
+      </div>
+    </div>
+
+    <div class="header-meta">
+      <div class="status-pill" [class.online]="backendStatus() === 'ONLINE'" [class.offline]="backendStatus() === 'OFFLINE'">
+        <span class="pulse-dot"></span>
+        <span class="status-text">
+          Backend: {{ backendStatus() === 'ONLINE' ? 'Spring Boot 8081 (Conectado)' : 'Modo Heurístico (Local)' }}
+        </span>
+      </div>
+
+      <div class="session-badge">
+        <span class="badge-label">SESIÓN:</span>
+        <span class="badge-val">{{ sessionId }}</span>
+      </div>
+
+      <button class="btn-ghost" (click)="resetBenchmark()" title="Reiniciar métricas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+          <path d="M3 3v5h5"/>
+        </svg>
+        Reset
+      </button>
+    </div>
+  </header>
+
+  <!-- Cross-Tab Extension Monitor Banner (If active in browser) -->
+  @if (currentAudit()) {
+    <div class="extension-active-banner">
+      <div class="ext-banner-left">
+        <span class="ext-pulse-dot"></span>
+        <div class="ext-banner-text">
+          <div class="ext-banner-title">
+            <span class="ext-badge">PESTAÑA EXTERNA AUDITADA</span>
+            <span class="ext-timestamp">{{ currentAudit().timestamp | date:'HH:mm:ss' }}</span>
+          </div>
+          <span class="ext-url" [title]="currentAudit().url">{{ currentAudit().url }}</span>
+        </div>
+      </div>
+      <div class="ext-banner-metrics">
+        <div class="ext-metric-chip">
+          <span class="chip-lbl">INP Estimado:</span>
+          <strong class="chip-val">{{ currentAudit().predictedInpMs }} ms</strong>
+        </div>
+        <div class="ext-metric-chip" [ngClass]="vitalsClass()">
+          <span class="chip-lbl">Estatus:</span>
+          <strong class="chip-val">{{ currentAudit().vitalsCategory }}</strong>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Live Telemetry Metrics Cards -->
+  <section class="telemetry-grid">
+    <!-- Card 1: Event Loop Lag -->
+    <div class="metric-card">
+      <div class="card-header">
+        <span class="card-tag">LATENCIA</span>
+        <span class="card-icon lag-icon">⚡</span>
+      </div>
+      <div class="card-body">
+        <div class="metric-value-row">
+          <span class="metric-number">{{ perf.eventLoopLag() }}</span>
+          <span class="metric-unit">ms</span>
+        </div>
+        <div class="metric-title">Retraso del Event Loop</div>
+        <p class="metric-desc">Delta de setTimeout(..., 0). Indica saturación de la cola de tareas.</p>
+      </div>
+      <div class="metric-progress-track">
+        <div class="metric-progress-fill lag-fill" [style.width.%]="mathMin(perf.eventLoopLag() * 2, 100)"></div>
+      </div>
+    </div>
+
+    <!-- Card 2: Long Tasks & TBT -->
+    <div class="metric-card">
+      <div class="card-header">
+        <span class="card-tag">MAIN THREAD</span>
+        <span class="card-icon task-icon">⏱</span>
+      </div>
+      <div class="card-body">
+        <div class="metric-value-row">
+          <span class="metric-number">{{ perf.lastLongTaskDuration() }}</span>
+          <span class="metric-unit">ms</span>
+        </div>
+        <div class="metric-title">Última Tarea Pesada (Long Task)</div>
+        <p class="metric-desc">TBT Acumulado (>50ms): <strong>{{ perf.totalBlockingTime() }} ms</strong></p>
+      </div>
+      <div class="metric-progress-track">
+        <div class="metric-progress-fill task-fill" [style.width.%]="mathMin(perf.lastLongTaskDuration() / 3, 100)"></div>
+      </div>
+    </div>
+
+    <!-- Card 3: DOM Density -->
+    <div class="metric-card">
+      <div class="card-header">
+        <span class="card-tag">ÁRBOL DOM</span>
+        <span class="card-icon dom-icon">🌳</span>
+      </div>
+      <div class="card-body">
+        <div class="metric-value-row">
+          <span class="metric-number">{{ perf.domNodeCount() }}</span>
+          <span class="metric-unit">nodos</span>
+        </div>
+        <div class="metric-title">Densidad del DOM</div>
+        <p class="metric-desc">
+          Impacto en recalc style/layout. 
+          @if (stressNodeCount() > 0) {
+            <span class="stress-badge">+{{ stressNodeCount() }} inyectados</span>
+          }
+        </p>
+      </div>
+      <div class="metric-progress-track">
+        <div class="metric-progress-fill dom-fill" [style.width.%]="mathMin(perf.domNodeCount() / 40, 100)"></div>
+      </div>
+    </div>
+
+    <!-- Card 4: Projected INP via AI -->
+    <div class="metric-card highlight-card" [ngClass]="vitalsClass()">
+      <div class="card-header">
+        <span class="card-tag">MODELO IA (ONNX)</span>
+        <span class="card-icon inp-icon">🎯</span>
+      </div>
+      <div class="card-body">
+        <div class="metric-value-row">
+          <span class="metric-number">{{ latestRecommendation().predictedInpMs }}</span>
+          <span class="metric-unit">ms</span>
+        </div>
+        <div class="metric-title">INP Proyectado (Interaction to Next Paint)</div>
+        <div class="vitals-status-pill" [ngClass]="vitalsClass()">
+          {{ vitalsBadgeText() }}
+        </div>
+      </div>
+      <div class="metric-progress-track">
+        <div class="metric-progress-fill inp-fill" [style.width.%]="mathMin(latestRecommendation().predictedInpMs / 6, 100)"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Concurrency Lab & Smoothness Tracker -->
+  <section class="lab-layout">
+    <!-- Left Column: Concurrency Benchmark Controls -->
+    <div class="lab-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Laboratorio de Concurrencia y Stress Test</h2>
+        <span class="panel-subtitle">Compara el comportamiento síncrono del Main Thread vs. Web Workers</span>
+      </div>
+
+      <div class="intensity-control">
+        <label class="control-label" for="workload-range">
+          <span>Intensidad de Cómputo CPU (Iteraciones de Primalidad):</span>
+          <strong class="intensity-value">{{ workloadIntensity() | number }} operaciones</strong>
+        </label>
+        <div class="range-wrapper">
+          <input
+            id="workload-range"
+            type="range"
+            min="1000000"
+            max="12000000"
+            step="1000000"
+            [ngModel]="workloadIntensity()"
+            (ngModelChange)="workloadIntensity.set($event)"
+            [disabled]="isProcessing()"
+          />
+        </div>
+        <div class="preset-buttons">
+          <button type="button" class="btn-preset" (click)="workloadIntensity.set(2000000)" [disabled]="isProcessing()">Ligero (2M)</button>
+          <button type="button" class="btn-preset" (click)="workloadIntensity.set(5000000)" [disabled]="isProcessing()">Medio (5M)</button>
+          <button type="button" class="btn-preset" (click)="workloadIntensity.set(10000000)" [disabled]="isProcessing()">Pesado (10M)</button>
+        </div>
+      </div>
+
+      <div class="benchmark-actions">
+        <!-- Button 1: Main Thread -->
+        <button
+          type="button"
+          class="btn-benchmark btn-danger"
+          (click)="runOnMainThread()"
+          [disabled]="isProcessing()"
+        >
+          <div class="btn-inner">
+            <span class="action-icon">🔥</span>
+            <div class="action-text">
+              <strong class="action-heading">Ejecutar en Main Thread</strong>
+              <small class="action-caption">Bloquea el Event Loop, congela UI y dispara INP a POOR</small>
+            </div>
+          </div>
+        </button>
+
+        <!-- Button 2: Web Worker -->
+        <button
+          type="button"
+          class="btn-benchmark btn-success"
+          (click)="runOnWebWorker()"
+          [disabled]="isProcessing()"
+        >
+          <div class="btn-inner">
+            <span class="action-icon">⚡</span>
+            <div class="action-text">
+              <strong class="action-heading">Ejecutar con Web Worker</strong>
+              <small class="action-caption">Desacopla el cómputo, mantiene 60 FPS e INP en GOOD</small>
+            </div>
+          </div>
+        </button>
+
+        <!-- Button 3: DOM Stress -->
+        <button
+          type="button"
+          class="btn-benchmark btn-neutral"
+          (click)="toggleDomStress()"
+          [disabled]="isProcessing()"
+        >
+          <div class="btn-inner">
+            <span class="action-icon">🌲</span>
+            <div class="action-text">
+              <strong class="action-heading">
+                {{ stressNodeCount() === 0 ? 'Inyectar Estrés en el DOM (+1,500 Nodos)' : 'Limpiar Nodos de Estrés' }}
+              </strong>
+              <small class="action-caption">Evalúa el coste de recalcular estilos y renderizado</small>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      @if (isProcessing()) {
+        <div class="processing-banner">
+          <div class="spinner"></div>
+          <span>Procesando algoritmo intensivo en modo <strong>{{ activeMode() }}</strong>...</span>
+        </div>
+      } @else if (lastCalculationDuration() > 0) {
+        <div class="result-banner" [class.result-worker]="activeMode() === 'WORKER'" [class.result-main]="activeMode() === 'MAIN_THREAD'">
+          <span>Último cálculo completado en <strong>{{ lastCalculationDuration() }} ms</strong> vía <strong>{{ activeMode() }}</strong>.</span>
+        </div>
+      }
+    </div>
+
+    <!-- Right Column: Visual Frame Smoothness Radar -->
+    <div class="smoothness-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Radar de Fluidez (Tasa de Fotogramas)</h2>
+        <span class="panel-subtitle">Demostración visual del congelamiento del hilo principal</span>
+      </div>
+
+      <div class="fps-meter-container">
+        <div class="fps-orbital-wrapper" [class.frozen]="isProcessing() && activeMode() === 'MAIN_THREAD'">
+          <div class="orbital-ring ring-1"></div>
+          <div class="orbital-ring ring-2"></div>
+          <div class="orbital-pulse"></div>
+          <div class="fps-center-display">
+            <span class="fps-number">{{ currentFps() }}</span>
+            <span class="fps-label">FPS</span>
+          </div>
+        </div>
+
+        <div class="fps-diagnostics">
+          @if (isProcessing() && activeMode() === 'MAIN_THREAD') {
+            <div class="diag-badge diag-frozen">
+              <span class="diag-dot red"></span>
+              <span>¡PANTALLA CONGELADA! El Main Thread está saturado.</span>
+            </div>
+          } @else if (isProcessing() && activeMode() === 'WORKER') {
+            <div class="diag-badge diag-smooth">
+              <span class="diag-dot green"></span>
+              <span>60 FPS FLUIDOS: El cálculo corre en segundo plano.</span>
+            </div>
+          } @else {
+            <div class="diag-badge diag-idle">
+              <span class="diag-dot blue"></span>
+              <span>Hilo principal libre para interacciones del usuario.</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Architectural Advice Box & Core Web Vitals Traffic Light -->
+      <div class="advice-card" [ngClass]="vitalsClass()">
+        <div class="advice-header">
+          <div class="traffic-light">
+            <span class="light red-light" [class.active]="latestRecommendation().vitalsCategory === 'POOR'"></span>
+            <span class="light yellow-light" [class.active]="latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT'"></span>
+            <span class="light green-light" [class.active]="latestRecommendation().vitalsCategory === 'GOOD'"></span>
+          </div>
+          <span class="advice-category-title">{{ vitalsBadgeText() }}</span>
+        </div>
+
+        <p class="advice-text">{{ latestRecommendation().architecturalAdvice }}</p>
+
+        <div class="mitigation-flags">
+          <div class="flag-pill" [class.flag-active]="latestRecommendation().offloadToWorker">
+            <span class="flag-icon">🧵</span>
+            <span>Delegar a Web Worker: <strong>{{ latestRecommendation().offloadToWorker ? 'SÍ (CRÍTICO)' : 'NO REQUERIDO' }}</strong></span>
+          </div>
+
+          <div class="flag-pill" [class.flag-active]="latestRecommendation().yieldMainThread">
+            <span class="flag-icon">⏳</span>
+            <span>Fragmentar con scheduler.yield(): <strong>{{ latestRecommendation().yieldMainThread ? 'SÍ (RECOMENDADO)' : 'NO REQUERIDO' }}</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- History & Audit Table -->
+  <section class="history-section">
+    <div class="section-header">
+      <h2 class="section-title">Historial Temporal de Evaluaciones (Sesión Actual)</h2>
+      <span class="section-badge">{{ history().length }} registros auditados</span>
+    </div>
+
+    @if (history().length > 0) {
+      <div class="table-responsive">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Hora</th>
+              <th>Modo</th>
+              <th>Long Task</th>
+              <th>TBT Bloqueo</th>
+              <th>Nodos DOM</th>
+              <th>Event Loop Lag</th>
+              <th>INP Estimado</th>
+              <th>Estatus CWV</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of history(); track item.timestamp) {
+              <tr>
+                <td class="col-time">{{ item.timestamp | date:'HH:mm:ss' }}</td>
+                <td>
+                  <span class="mode-pill" [class.mode-main]="item.mode === 'MAIN_THREAD'" [class.mode-worker]="item.mode === 'WORKER'">
+                    {{ item.mode }}
+                  </span>
+                </td>
+                <td>{{ item.longTaskDurationMs }} ms</td>
+                <td>{{ item.blockingTimeMs }} ms</td>
+                <td>{{ item.domNodeCount }}</td>
+                <td>{{ item.eventLoopLagMs }} ms</td>
+                <td class="col-inp"><strong>{{ item.predictedInpMs }} ms</strong></td>
+                <td>
+                  <span class="status-cell-pill" [class.pill-good]="item.category === 'GOOD'" [class.pill-warning]="item.category === 'NEEDS_IMPROVEMENT'" [class.pill-poor]="item.category === 'POOR'">
+                    {{ item.category }}
+                  </span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div class="empty-history">
+        <p>No se han registrado auditorías en esta sesión todavía. Ejecuta una prueba en el simulador para comenzar.</p>
+      </div>
+    }
+  </section>
+
+  <!-- Mount zone for dynamic DOM stress injection (hidden overflow) -->
+  <div id="dom-stress-mount" class="dom-stress-container" aria-hidden="true"></div>
+</div>
