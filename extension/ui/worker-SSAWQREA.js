@@ -1,0 +1,1 @@
+addEventListener("message",({data:o})=>{let i=o?.iterations||5e6,n=performance.now(),s=0;for(let t=2;t<=i;t++){let r=!0,m=Math.floor(Math.sqrt(t));for(let e=2;e<=m;e++)if(t%e===0){r=!1;break}r&&s++}let a=performance.now()-n;postMessage({status:"done",durationMs:Number(a.toFixed(2)),primesCount:s})});
