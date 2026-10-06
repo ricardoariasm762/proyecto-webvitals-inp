@@ -1,0 +1,25 @@
+# Python
+**/venv/
+**/.venv/
+**/__pycache__/
+*.pyc
+
+# Node & Package Managers
+**/node_modules/
+**/npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Java & Maven
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
+
+# Angular Build & Cache
+**/.angular/
+frontend/dist/
+frontend/out-tsc/
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.idea/
