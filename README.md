@@ -1,59 +1,75 @@
-# Frontend
+# NEXUS//HUD - Auditor Predictivo de INP y Event Loop
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.24.
+Panel interactivo de alta fidelidad y extensión de Google Chrome para diagnosticar, evaluar heurísticamente y predecir el impacto de interacciones de usuario en **Interaction to Next Paint (INP)** y **Web Vitals**.
 
-## Development server
+Basado en el diseño HUD táctico de [Stitch](https://stitch.withgoogle.com/projects/5541299311833622140), adaptado con soporte para Modo Claro/Oscuro dinámico, detección de esquema de color del sistema y diseño 100% responsivo para Side Panel de extensiones.
 
-To start a local development server, run:
+---
 
-```bash
-ng serve
-```
+## ⚡ Características Principales
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- **Osciloscopio y Medidor Radial de INP**: Visualización gráfica SVG interactiva en tiempo real con gauge angular dinámico.
+- **Detección Automática de Tema**: Soporte nativo para `Modo Claro`, `Modo Oscuro` y `Sincronización Automática` con las preferencias del sistema operativo (`prefers-color-scheme`).
+- **Simulador de Estrés de Main Thread**: Pruebas de estrés controladas mediante bloqueo sincrónico de hilo principal y derivación a Web Workers (`compute.worker.ts`).
+- **Terminal CLI Emulada**: Consola HUD integrada con comandos interactivos (`help`, `stress`, `clear`, `theme`, `status`).
+- **Arquitectura de Micro-Extensión**: Empaquetado optimizado para Google Chrome Manifest V3 Side Panel y Popup.
 
-## Code scaffolding
+---
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## 🚀 Inicio Rápido
 
-```bash
-ng generate component component-name
-```
+### Requisitos Previos
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+- Node.js 18+ o 20+
+- npm 9+
 
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
+### Instalación
 
 ```bash
-ng build
+npm install
 ```
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+### Servidor de Desarrollo
 
 ```bash
-ng test
+npm start
 ```
+Navega a `http://localhost:4200/`.
 
-## Running end-to-end tests
+---
 
-For end-to-end (e2e) testing, run:
+## 🛠️ Compilación y Empaquetado
+
+### Compilar Aplicación Web
 
 ```bash
-ng e2e
+npm run build
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+### Empaquetar Extensión de Google Chrome (Manifest V3)
 
-## Additional Resources
+```bash
+npm run build:extension
+```
+Los artefactos finales se sincronizarán automáticamente en la carpeta `extension/ui`. Para cargarla en el navegador:
+1. Abre Google Chrome y ve a `chrome://extensions/`.
+2. Activa el **Modo de desarrollador** (Developer Mode).
+3. Haz clic en **Cargar descomprimida** (Load unpacked) y selecciona la carpeta `extension/`.
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+---
+
+## 🧪 Pruebas Unitarias
+
+Para ejecutar la suite de pruebas unitarias con Vitest:
+
+```bash
+npm test
+```
+
+---
+
+## 📚 Documentación Técnica
+
+- [Guía de Arquitectura del Sistema](file:///docs/ARCHITECTURE.md): Diagramas de flujo, servicios desacoplados, sincronización de temas y worker.
+- [Guía de Optimización de INP](file:///docs/INP_OPTIMIZATION_GUIDE.md): Metodología de diagnóstico, desglose de fases (Input Delay, Processing Duration, Presentation Delay) y soluciones.
+
