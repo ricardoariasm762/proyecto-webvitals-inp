@@ -1,0 +1,726 @@
+<!-- ==========================================================================
+     NEXUS//HUD - AUDITOR PREDICTIVO DE INP Y EVENT LOOP
+     Responsive UI/UX for Desktop, Mobile & Chrome Extension Side Panel
+     ========================================================================== -->
+
+<div class="hud-shell">
+  <!-- Scanline CRT Overlay -->
+  <div class="scanline-overlay"></div>
+
+  <!-- FIXED TOPBAR -->
+  <header class="hud-topbar">
+    <div class="topbar-inner">
+      <!-- Left: Logo & Target -->
+      <div class="topbar-left">
+        <div class="brand-group">
+          <span class="brand-pulse-dot"></span>
+          <span class="brand-title">NEXUS//HUD</span>
+          <span class="brand-version-badge">V3.4</span>
+        </div>
+
+        <div class="topbar-divider hidden-compact"></div>
+
+        <div class="target-selector hidden-compact" [title]="targetUrl()">
+          <span class="target-lbl">TARGET:</span>
+          <div class="target-chip">
+            <span class="target-domain">{{ targetUrl() }}</span>
+            <span class="material-symbols-outlined target-icon">arrow_drop_down</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Telemetry Matrix (Desktop Only) -->
+      <div class="topbar-center">
+        <div class="telemetry-pill">
+          <span class="pill-lbl">SYNC_UTC:</span>
+          <span class="pill-val mono-digits">{{ syncUtc() }}</span>
+        </div>
+
+        <div class="telemetry-pill">
+          <span class="pill-lbl">RATE:</span>
+          <span class="rate-badge" [class.rate-stable]="currentFps() >= 55" [class.rate-warning]="currentFps() < 55 && currentFps() >= 30" [class.rate-critical]="currentFps() < 30">
+            {{ currentFps() }}.0 FPS [{{ currentFps() >= 55 ? 'STABLE' : currentFps() >= 30 ? 'JANK' : 'CRITICAL' }}]
+          </span>
+        </div>
+
+        <div class="telemetry-pill">
+          <span class="pill-lbl">INP_DOCK:</span>
+          <span class="dock-val" [class.text-good]="latestRecommendation().vitalsCategory === 'GOOD'" [class.text-warning]="latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT'" [class.text-danger]="latestRecommendation().vitalsCategory === 'POOR'">
+            {{ latestRecommendation().predictedInpMs }}ms [{{ latestRecommendation().vitalsCategory === 'GOOD' ? 'NOMINAL' : latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT' ? 'WARNING' : 'CRITICAL' }}]
+          </span>
+        </div>
+
+        <div class="telemetry-pill">
+          <span class="pill-lbl">HEAP_MEM:</span>
+          <span class="heap-val mono-digits">{{ heapUsedMb() }}MB</span>
+          <span class="heap-slash">/</span>
+          <span class="heap-max mono-digits">{{ heapTotalMb() }}MB</span>
+        </div>
+      </div>
+
+      <!-- Right Controls: Backend, Theme Selector & Reset -->
+      <div class="topbar-right">
+        <!-- Daemon / Backend status -->
+        <div class="daemon-badge" [class.daemon-online]="backendStatus() === 'ONLINE'" [class.daemon-offline]="backendStatus() === 'OFFLINE'">
+          <span class="daemon-dot"></span>
+          <span class="daemon-text">{{ backendStatus() === 'ONLINE' ? 'DAEMON' : 'LOCAL' }}</span>
+        </div>
+
+        <!-- THEME SELECTOR SWITCH (System Auto / Light / Dark) -->
+        <div class="theme-switch-container" title="Modo visual y detección automática del sistema">
+          <button
+            type="button"
+            class="theme-btn"
+            [class.theme-btn-active]="theme.themeMode() === 'system'"
+            (click)="theme.setMode('system')"
+            title="Detectar automáticamente el tema del sistema (Auto)">
+            <span class="material-symbols-outlined theme-icon">settings_suggest</span>
+            <span class="theme-btn-text">AUTO</span>
+          </button>
+
+          <button
+            type="button"
+            class="theme-btn"
+            [class.theme-btn-active]="theme.themeMode() === 'light'"
+            (click)="theme.setMode('light')"
+            title="Activar Modo Claro">
+            <span class="material-symbols-outlined theme-icon">light_mode</span>
+            <span class="theme-btn-text">CLARO</span>
+          </button>
+
+          <button
+            type="button"
+            class="theme-btn"
+            [class.theme-btn-active]="theme.themeMode() === 'dark'"
+            (click)="theme.setMode('dark')"
+            title="Activar Modo Oscuro">
+            <span class="material-symbols-outlined theme-icon">dark_mode</span>
+            <span class="theme-btn-text">OSCURO</span>
+          </button>
+        </div>
+
+        <!-- Quick Calibration Reset -->
+        <button class="calib-reset-btn" (click)="resetBenchmark()" title="Reiniciar contadores de telemetría">
+          <span class="material-symbols-outlined">restart_alt</span>
+          <span class="reset-text">RESET</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- FIXED SIDEBAR (Hidden on screens <= 900px, e.g. Side Panels) -->
+  <aside class="hud-sidebar">
+    <div class="sidebar-top">
+      <div class="matrix-header">
+        <span class="matrix-title">// TELEMETRY_MATRIX</span>
+        <span class="matrix-status">[SYS_OK]</span>
+      </div>
+
+      <nav class="matrix-nav">
+        <button
+          type="button"
+          class="nav-item"
+          [class.nav-item-active]="activeNavPath() === 'runtime-telemetry'"
+          (click)="setNav('runtime-telemetry')">
+          <span class="material-symbols-outlined nav-icon">speed</span>
+          <span class="nav-label">RUNTIME TELEMETRY</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-item"
+          [class.nav-item-active]="activeNavPath() === 'heap-memory'"
+          (click)="setNav('heap-memory')">
+          <span class="material-symbols-outlined nav-icon">memory</span>
+          <span class="nav-label">HEAP &amp; ALLOCATION</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-item"
+          [class.nav-item-active]="activeNavPath() === 'network-waterfall'"
+          (click)="setNav('network-waterfall')">
+          <span class="material-symbols-outlined nav-icon">hub</span>
+          <span class="nav-label">NETWORK WATERFALL</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-item"
+          [class.nav-item-active]="activeNavPath() === 'dom-mutations'"
+          (click)="setNav('dom-mutations')">
+          <span class="material-symbols-outlined nav-icon">layers</span>
+          <span class="nav-label">DOM MUTATION TRACE</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-item"
+          [class.nav-item-active]="activeNavPath() === 'signal-oscilloscope'"
+          (click)="setNav('signal-oscilloscope')">
+          <span class="material-symbols-outlined nav-icon">monitoring</span>
+          <span class="nav-label">SIGNAL OSCILLOSCOPE</span>
+        </button>
+
+        <button
+          type="button"
+          class="nav-item"
+          [class.nav-item-active]="activeNavPath() === 'audit-logs'"
+          (click)="setNav('audit-logs')">
+          <span class="material-symbols-outlined nav-icon">terminal</span>
+          <span class="nav-label">AUDIT &amp; CRASH LOGS</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Sidebar Bottom Calibration Panel -->
+    <div class="sidebar-bottom">
+      <div class="calib-header">LATERAL HUD CALIBRATION</div>
+      <div class="calib-grid">
+        <div class="calib-cell">BUFFER: <strong class="text-primary-container">0.02ms</strong></div>
+        <div class="calib-cell">CORE: <strong class="text-secondary-fixed">8-THREAD</strong></div>
+        <div class="calib-cell">SOCKET: <strong class="text-primary">WSS://ON</strong></div>
+        <div class="calib-cell">LOSS: <strong class="text-secondary-container">0.00%</strong></div>
+      </div>
+      <div class="calib-progress-track">
+        <div class="calib-progress-fill" style="width: 38%;"></div>
+      </div>
+
+      <div class="sidebar-theme-indicator">
+        <span class="material-symbols-outlined text-[13px]">tune</span>
+        <span>{{ theme.themeDescription() }}</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN VIEWPORT -->
+  <main class="hud-main grid-bg">
+    <div class="main-container">
+
+      <!-- TOP PROTOCOL BAR -->
+      <div class="protocol-bar">
+        <div class="protocol-bg-gradient"></div>
+
+        <div class="protocol-left">
+          <div class="kernel-hook-chip">
+            <span class="kernel-pulse-dot"></span>
+            <span class="kernel-text">[KERNEL_HOOK: ACTIVE]</span>
+          </div>
+          <div class="protocol-target" [title]="targetUrl()">
+            <span class="protocol-lbl">TARGET:</span>
+            <span class="protocol-val mono-digits">{{ targetUrl() }}</span>
+          </div>
+        </div>
+
+        <div class="protocol-right">
+          <div class="protocol-stat">
+            <span class="protocol-lbl">MODE:</span>
+            <span class="protocol-mode-badge">OBSERVER_V2</span>
+          </div>
+          <div class="protocol-stat">
+            <span class="protocol-lbl">SAMPLE:</span>
+            <span class="protocol-accent">1000Hz (NYQUIST)</span>
+          </div>
+          <div class="protocol-stat">
+            <span class="protocol-lbl">EPOCH:</span>
+            <span class="protocol-epoch mono-digits">{{ epochCounter() }}</span>
+          </div>
+          <div class="protocol-stream-badge">
+            <span class="material-symbols-outlined text-[13px] text-primary-container">satellite_alt</span>
+            <span>STREAM: 99.98%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CROSS-TAB EXTENSION MONITOR BANNER (If running from Chrome extension) -->
+      @if (currentAudit()) {
+        <div class="extension-active-banner">
+          <div class="ext-banner-left">
+            <span class="ext-pulse-dot"></span>
+            <div class="ext-banner-text">
+              <div class="ext-banner-title">
+                <span class="ext-badge">PESTAÑA AUDITADA EN TIEMPO REAL</span>
+                <span class="ext-timestamp">{{ currentAudit().timestamp | date:'HH:mm:ss' }}</span>
+              </div>
+              <span class="ext-url" [title]="currentAudit().url">{{ currentAudit().url }}</span>
+            </div>
+          </div>
+          <div class="ext-banner-metrics">
+            <div class="ext-metric-chip">
+              <span class="chip-lbl">INP Estimado:</span>
+              <strong class="chip-val">{{ currentAudit().predictedInpMs }} ms</strong>
+            </div>
+            <div class="ext-metric-chip" [ngClass]="vitalsClass()">
+              <span class="chip-lbl">Estatus:</span>
+              <strong class="chip-val">{{ currentAudit().vitalsCategory }}</strong>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- MAIN HUD GRID (7 COLS / 5 COLS) -->
+      <div class="hud-hero-grid">
+
+        <!-- LEFT 7 COLS: VECTOR INP ENGINE & BREAKDOWN -->
+        <div class="hud-card hero-inp-card">
+          <!-- Reticle Header -->
+          <div class="reticle-header">
+            <div class="reticle-title-group">
+              <span class="reticle-title">// VECTOR_INP_ENGINE</span>
+              <span class="reticle-tag">PREDICTIVE_V4</span>
+            </div>
+            <div class="reticle-status" [class.status-good]="latestRecommendation().vitalsCategory === 'GOOD'" [class.status-warning]="latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT'" [class.status-poor]="latestRecommendation().vitalsCategory === 'POOR'">
+              <span class="reticle-dot"></span>
+              <span class="reticle-text">{{ vitalsBadgeText() }}</span>
+            </div>
+          </div>
+
+          <!-- Gauges & Main Metric Viewport -->
+          <div class="gauge-grid">
+            <!-- SVG Semi-Circular Arc Gauge -->
+            <div class="gauge-col">
+              <div class="gauge-wrapper">
+                <svg class="gauge-svg" viewBox="0 0 200 200">
+                  <!-- Background Segmented Track -->
+                  <circle
+                    class="gauge-bg-track"
+                    cx="100"
+                    cy="100"
+                    r="82"
+                    fill="none"
+                    stroke-width="12"
+                    stroke-dasharray="3 4">
+                  </circle>
+                  <!-- Good Zone (0-200ms) -->
+                  <circle
+                    class="gauge-good-zone"
+                    cx="100"
+                    cy="100"
+                    r="82"
+                    fill="none"
+                    stroke-width="12"
+                    stroke-dasharray="130 500"
+                    stroke-dashoffset="0">
+                  </circle>
+                  <!-- Warning Zone (200-500ms) -->
+                  <circle
+                    class="gauge-warning-zone"
+                    cx="100"
+                    cy="100"
+                    r="82"
+                    fill="none"
+                    stroke-width="12"
+                    stroke-dasharray="60 500"
+                    stroke-dashoffset="-132">
+                  </circle>
+                  <!-- Danger Zone (>500ms) -->
+                  <circle
+                    class="gauge-danger-zone"
+                    cx="100"
+                    cy="100"
+                    r="82"
+                    fill="none"
+                    stroke-width="12"
+                    stroke-dasharray="60 500"
+                    stroke-dashoffset="-194">
+                  </circle>
+                  <!-- Active Laser Needle Trace Segment -->
+                  <circle
+                    class="gauge-laser-trace"
+                    cx="100"
+                    cy="100"
+                    r="82"
+                    fill="none"
+                    stroke-width="14"
+                    stroke-dasharray="32 500"
+                    [style.stroke]="gaugeTraceColor()"
+                    [style.stroke-dashoffset]="gaugeTraceOffset()">
+                  </circle>
+                </svg>
+
+                <!-- Center Reticle Overlay -->
+                <div class="center-reticle">
+                  <span class="reticle-lbl">ESTIMATED INP</span>
+                  <div class="reticle-val-group">
+                    <span class="reticle-number mono-digits" [class.text-good]="latestRecommendation().vitalsCategory === 'GOOD'" [class.text-warning]="latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT'" [class.text-danger]="latestRecommendation().vitalsCategory === 'POOR'">
+                      {{ latestRecommendation().predictedInpMs }}
+                    </span>
+                    <span class="reticle-unit">MS</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Frame Budget Badge -->
+              <div class="frame-budget-chip">
+                <span class="material-symbols-outlined text-[13px]">verified</span>
+                <span>
+                  {{ latestRecommendation().vitalsCategory === 'GOOD' ? 'OPTIMAL_FRAME_BUDGET (16.6ms SLICE x 2.5)' : latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT' ? 'WARNING: FRAME JANK RISK (16.6ms - 50ms)' : 'SATURATED: SEVERE EVENT LOOP BLOCK' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Sub-vectors Breakdown & Micro-metrics -->
+            <div class="subvectors-col">
+              <div class="subvectors-header">
+                <span>METRIC SUB-VECTORS</span>
+                <span class="text-primary-container">TRACE_ID: #409-E</span>
+              </div>
+
+              <!-- Micro Metric 1: Input Delay -->
+              <div class="subvector-card">
+                <div class="subvector-title-row">
+                  <span class="subvector-name">INPUT_DELAY:</span>
+                  <span class="subvector-val text-secondary-fixed">
+                    {{ perf.eventLoopLag() }}ms <span class="subvector-limit">(&lt;50ms)</span>
+                  </span>
+                </div>
+                <div class="progress-bar-track">
+                  <div class="progress-bar-fill fill-green" [style.width.%]="inputDelayPercent()"></div>
+                </div>
+              </div>
+
+              <!-- Micro Metric 2: Processing Time -->
+              <div class="subvector-card">
+                <div class="subvector-title-row">
+                  <span class="subvector-name">PROCESSING_TIME:</span>
+                  <span class="subvector-val text-primary-container">
+                    {{ procTimeValue() }}ms <span class="subvector-limit">(&lt;100ms)</span>
+                  </span>
+                </div>
+                <div class="progress-bar-track">
+                  <div class="progress-bar-fill fill-lime" [style.width.%]="procTimePercent()"></div>
+                </div>
+              </div>
+
+              <!-- Micro Metric 3: Presentation Delay -->
+              <div class="subvector-card">
+                <div class="subvector-title-row">
+                  <span class="subvector-name">PRESENTATION_DELAY:</span>
+                  <span class="subvector-val text-secondary-fixed">
+                    {{ presDelayValue() }}ms <span class="subvector-limit">(&lt;50ms)</span>
+                  </span>
+                </div>
+                <div class="progress-bar-track">
+                  <div class="progress-bar-fill fill-green" [style.width.%]="presDelayPercent()"></div>
+                </div>
+              </div>
+
+              <!-- Quartile Distribution Mini-Map -->
+              <div class="quartile-section">
+                <div class="quartile-labels">
+                  <span>p75: <strong class="text-primary">42ms</strong></span>
+                  <span>p90: <strong class="text-tertiary-fixed-dim">88ms</strong></span>
+                  <span>p99: <strong class="text-error">174ms</strong></span>
+                </div>
+                <div class="quartile-bar">
+                  <div class="q-slice q-good" style="width: 75%;"></div>
+                  <div class="q-slice q-warn" style="width: 15%;"></div>
+                  <div class="q-slice q-poor" style="width: 10%;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Micro Matrix -->
+          <div class="reticle-footer">
+            <div>BUDGET SLACK: <strong class="text-secondary-fixed">{{ budgetSlack() }}</strong></div>
+            <div>WINDOW: <strong class="text-primary">50 USER EVENTS</strong></div>
+            <div>CONFIDENCE: <strong class="text-primary-container">99.8%</strong></div>
+          </div>
+        </div>
+
+        <!-- RIGHT 5 COLS: CLUSTER CORES, DOM & HEAP -->
+        <div class="hud-card cluster-card">
+          <div class="cluster-header">
+            <span class="cluster-title">// CLUSTER_CORES &amp; HEAP</span>
+            <span class="cluster-badge">OK_HEALTH</span>
+          </div>
+
+          <!-- 4 Stat Boxes (2x2 Grid) -->
+          <div class="cluster-stats-grid">
+            <!-- Box 1: DOM Nodes -->
+            <div class="stat-box">
+              <span class="stat-lbl">DOM_NODES</span>
+              <div class="stat-val mono-digits">{{ perf.domNodeCount() }}</div>
+              <div class="stat-sub">
+                <span>DEPTH: 19</span>
+                <span class="text-secondary-fixed">RECALC: 2.1ms</span>
+              </div>
+            </div>
+
+            <!-- Box 2: Long Tasks -->
+            <div class="stat-box">
+              <span class="stat-lbl">LONG_TASKS (&gt;50ms)</span>
+              <div class="stat-val stat-val-warn mono-digits">
+                {{ longTasksCount() }} <span class="stat-unit">/ 60s</span>
+              </div>
+              <div class="stat-sub">
+                <span>TBT:</span>
+                <span class="text-tertiary-fixed-dim font-bold">{{ perf.totalBlockingTime() }}ms</span>
+              </div>
+            </div>
+
+            <!-- Box 3: Event Loop Lag -->
+            <div class="stat-box">
+              <span class="stat-lbl">EVENT_LOOP_LAG</span>
+              <div class="stat-val stat-val-green mono-digits">{{ perf.eventLoopLag() }}ms</div>
+              <div class="stat-sub">
+                <span>JITTER: ±0.3ms</span>
+                <span class="text-secondary-container">IDLE: 84.6%</span>
+              </div>
+            </div>
+
+            <!-- Box 4: GC Pressure -->
+            <div class="stat-box">
+              <span class="stat-lbl">GC_PRESSURE</span>
+              <div class="stat-val mono-digits">LOW</div>
+              <div class="stat-sub">
+                <span>MINOR: 3.2ms</span>
+                <span class="text-primary-container">V8: 34%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Concurrency Pipeline Badge Array -->
+          <div class="thread-pool-panel">
+            <div class="thread-pool-header">
+              <span>THREAD POOL ISOLATION</span>
+              <span class="text-secondary-fixed">COOP/COEP: OK</span>
+            </div>
+            <div class="thread-grid">
+              <div class="thread-chip" [class.thread-active]="activeMode() === 'WORKER'">W#01:IDLE</div>
+              <div class="thread-chip" [class.thread-active]="activeMode() === 'WORKER'">W#02:RUN</div>
+              <div class="thread-chip thread-hot" [class.thread-active]="activeMode() === 'WORKER'">
+                W#03:{{ activeMode() === 'WORKER' ? 'HOT [BUSY]' : 'HOT' }}
+              </div>
+              <div class="thread-chip">W#04:AWAIT</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MIDDLE SECTION: SIGNAL OSCILLOSCOPE -->
+      <div class="hud-card oscilloscope-card">
+        <div class="osc-header">
+          <div class="osc-title-group">
+            <span class="osc-title">// SIGNAL_OSCILLOSCOPE</span>
+            <span class="osc-badge">60_FRAMES</span>
+          </div>
+          <div class="osc-legend">
+            <div class="legend-item"><span class="legend-dot dot-good"></span><span>&lt;16.6ms (PASS)</span></div>
+            <div class="legend-item"><span class="legend-dot dot-warn"></span><span>16.6-50ms (JANK)</span></div>
+            <div class="legend-item"><span class="legend-dot dot-poor"></span><span>&gt;50ms (BLOCK)</span></div>
+          </div>
+        </div>
+
+        <!-- Wireframe Canvas Panel with SVG Wave and Digital Spectrum Bars -->
+        <div class="osc-canvas">
+          <!-- Guide lines -->
+          <div class="guide-line line-16ms"><span>16.6ms BUDGET</span></div>
+          <div class="guide-line line-50ms"><span>50.0ms LONG TASK</span></div>
+
+          <!-- Animated SVG Spark Wave Vector -->
+          <svg class="osc-svg" preserveAspectRatio="none" viewBox="0 0 600 120">
+            <path
+              class="osc-wave-glow"
+              d="M 0 100 L 20 95 L 40 98 L 60 45 L 80 96 L 100 92 L 120 95 L 140 30 L 160 97 L 180 94 L 200 95 L 220 92 L 240 96 L 260 20 L 280 96 L 300 95 L 320 93 L 340 96 L 360 88 L 380 95 L 400 92 L 420 96 L 440 94 L 460 95 L 480 93 L 500 95 L 520 92 L 540 96 L 560 95 L 580 93 L 600 95"
+              fill="none">
+            </path>
+            <path
+              class="osc-wave-line"
+              d="M 0 100 L 20 95 L 40 98 L 60 45 L 80 96 L 100 92 L 120 95 L 140 30 L 160 97 L 180 94 L 200 95 L 220 92 L 240 96 L 260 20 L 280 96 L 300 95 L 320 93 L 340 96 L 360 88 L 380 95 L 400 92 L 420 96 L 440 94 L 460 95 L 480 93 L 500 95 L 520 92 L 540 96 L 560 95 L 580 93 L 600 95"
+              fill="none">
+            </path>
+          </svg>
+
+          <!-- Dynamic 48-bar Oscilloscope Spectrum Clusters -->
+          <div class="osc-bars-container">
+            @for (height of oscBarHeights(); track $index) {
+              <div
+                class="osc-bar"
+                [class.osc-bar-stressed]="height > 40"
+                [style.height.%]="height">
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Sub-rail Metrics -->
+        <div class="osc-footer-rail">
+          <div>MAX PEAK: <strong class="text-error">{{ peakLatency() }}ms</strong></div>
+          <div>AVG LATENCY: <strong class="text-secondary-container">{{ avgLatency() }}ms</strong></div>
+          <div>FRAME DROPS: <strong class="text-tertiary-fixed-dim">{{ frameDrops() }}</strong></div>
+          <div>RENDER: <strong class="text-primary-container">60Hz LOCKED</strong></div>
+        </div>
+      </div>
+
+      <!-- LOWER SECTION: HARDWARE STRESS DOCK & AI PRESCRIPTION ENGINE -->
+      <div class="hud-lower-grid">
+
+        <!-- LEFT 5 COLS: TACTILE STRESS TRIGGER CONSOLE -->
+        <div class="hud-card stress-dock-card">
+          <div>
+            <div class="dock-header">
+              <span class="dock-title">// HARDWARE_STRESS_DOCK</span>
+              <span class="dock-badge">INTERACTIVE_PROBE</span>
+            </div>
+
+            <p class="dock-desc">
+              Execute synthetic interaction loads to evaluate scheduler preemption, INP degradation, and Event Loop resilience under pathological workloads.
+            </p>
+
+            <!-- Interactive Workload Controls -->
+            <div class="stress-controls-panel">
+              <div class="control-row">
+                <label for="workload-slider" class="control-label">
+                  <span>INTENSIDAD:</span>
+                  <strong class="text-primary-container mono-digits">{{ (workloadIntensity() / 1_000_000).toFixed(1) }}M ITERACIONES</strong>
+                </label>
+                <input
+                  id="workload-slider"
+                  type="range"
+                  min="1000000"
+                  max="12000000"
+                  step="500000"
+                  [ngModel]="workloadIntensity()"
+                  (ngModelChange)="workloadIntensity.set($event)"
+                  class="cyber-slider">
+              </div>
+
+              <div class="control-row-dom">
+                <button
+                  type="button"
+                  class="dom-stress-toggle-btn"
+                  [class.dom-active]="stressNodeCount() > 0"
+                  (click)="toggleDomStress()">
+                  <span class="material-symbols-outlined text-[15px]">account_tree</span>
+                  <span>{{ stressNodeCount() === 0 ? '+ INYECTAR 1,500 NODOS' : '- PURGAR 1,500 NODOS' }}</span>
+                </button>
+                <span class="dom-count-badge">
+                  {{ stressNodeCount() > 0 ? '+1,500 ACTIVOS' : 'DOM NOMINAL' }}
+                </span>
+              </div>
+            </div>
+
+            <!-- DUAL TACTICAL BUTTONS -->
+            <div class="tactical-buttons-group">
+              <!-- Button A: Main Thread Freeze -->
+              <button
+                type="button"
+                class="tactical-btn btn-hazard-main"
+                [disabled]="isProcessing()"
+                (click)="runOnMainThread()">
+                <div class="tactical-accent-stripe"></div>
+                <div class="hazard-stripe-bg"></div>
+                <div class="tactical-btn-content">
+                  <div class="tactical-btn-header">
+                    <span class="tactical-title text-warn-btn">
+                      <span class="material-symbols-outlined text-[18px]">warning</span>
+                      <span>MAIN THREAD BLOCK</span>
+                    </span>
+                    <span class="tactical-tag tag-hazard">HAZARDOUS</span>
+                  </div>
+                  <div class="tactical-desc">
+                    Synthesize 120ms synchronous regex freeze &amp; layout thrash. Tests frame drop &amp; INP spike.
+                  </div>
+                </div>
+              </button>
+
+              <!-- Button B: Dedicated Web Worker -->
+              <button
+                type="button"
+                class="tactical-btn btn-worker-neon"
+                [disabled]="isProcessing()"
+                (click)="runOnWebWorker()">
+                <div class="tactical-accent-worker"></div>
+                <div class="tactical-btn-content">
+                  <div class="tactical-btn-header">
+                    <span class="tactical-title text-worker-btn">
+                      <span class="material-symbols-outlined text-[18px]">terminal</span>
+                      <span>DISPATCH WEB WORKER</span>
+                    </span>
+                    <span class="tactical-tag tag-concurrent">CONCURRENT</span>
+                  </div>
+                  <div class="tactical-desc">
+                    Offload compute through WebWorker / scheduler.postTask() with zero main-thread jank budget impact.
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- Execution Feedback Bar -->
+          <div class="trigger-feedback-bar">
+            <span class="feedback-lbl">TRIGGER LOG:</span>
+            <span class="feedback-status" [ngClass]="triggerStatusClass()">
+              {{ triggerStatus() }}
+            </span>
+          </div>
+
+          <!-- Hidden mount point for DOM stress testing -->
+          <div id="dom-stress-mount" class="dom-stress-hidden-mount"></div>
+        </div>
+
+        <!-- RIGHT 7 COLS: ALGORITHMIC AI PRESCRIPTION ENGINE & TERMINAL TICKER -->
+        <div class="hud-card prescription-card">
+          <div>
+            <div class="dock-header">
+              <div class="flex-items-gap">
+                <span class="dock-title">// AI_PRESCRIPTION_ENGINE</span>
+                <span class="engine-streaming-badge">STREAMING</span>
+              </div>
+              <div class="confidence-badge">
+                <span>CONFIDENCE:</span>
+                <strong class="text-secondary-container">99.4%</strong>
+              </div>
+            </div>
+
+            <!-- AI Live Recommendation Banner -->
+            <div class="ai-active-advice" [class.advice-good]="latestRecommendation().vitalsCategory === 'GOOD'" [class.advice-warning]="latestRecommendation().vitalsCategory === 'NEEDS_IMPROVEMENT'" [class.advice-poor]="latestRecommendation().vitalsCategory === 'POOR'">
+              <span class="material-symbols-outlined text-[16px]">psychology</span>
+              <span class="advice-text">{{ latestRecommendation().architecturalAdvice }}</span>
+            </div>
+
+            <!-- CRT Log Ticker Box -->
+            <div #terminalContainer class="terminal-ticker-box">
+              @for (log of terminalLogs(); track log.id) {
+                <div class="log-entry" [ngClass]="'log-' + log.level.toLowerCase()">
+                  <span class="log-time mono-digits">{{ log.time }}</span>
+                  <span class="log-level-badge">{{ log.level }}:</span>
+                  <span class="log-message">
+                    {{ log.message }}
+                    @if (log.code) {
+                      <code class="log-code-snippet">{{ log.code }}</code>
+                    }
+                    @if (log.highlight) {
+                      <span> {{ log.highlight }}</span>
+                    }
+                  </span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Command Line Prompt Field -->
+          <div class="terminal-cmd-bar">
+            <span class="cmd-prompt-chevron">&gt;</span>
+            <input
+              type="text"
+              class="cmd-input mono-digits"
+              placeholder="execute_patch --strategy=scheduler.yield()"
+              spellcheck="false"
+              [ngModel]="cmdInput()"
+              (ngModelChange)="cmdInput.set($event)"
+              (keydown.enter)="onCommandSubmit()">
+            <button type="button" class="cmd-apply-btn" (click)="onCommandSubmit()">
+              APPLY
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
