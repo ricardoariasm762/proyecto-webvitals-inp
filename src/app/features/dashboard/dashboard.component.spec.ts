@@ -27,32 +27,32 @@ describe('DashboardComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe crear el componente Dashboard correctamente', () => {
+  it('should create the Dashboard component successfully', () => {
     expect(component).toBeTruthy();
   });
 
-  it('debe inicializar con 48 barras en el osciloscopio', () => {
+  it('should initialize with 48 bars in the oscilloscope', () => {
     expect(component.oscBarHeights().length).toBe(48);
   });
 
-  it('debe tener estado inicial en reposo (IDLE)', () => {
+  it('should have initial idle state (IDLE)', () => {
     expect(component.activeMode()).toBe('IDLE');
     expect(component.isProcessing()).toBe(false);
   });
 
-  it('debe reiniciar metricas correctamente al llamar a resetBenchmark', () => {
+  it('should reset metrics correctly when resetBenchmark is invoked', () => {
     component.resetBenchmark();
     expect(component.lastCalculationDuration()).toBe(0);
     expect(component.activeMode()).toBe('IDLE');
     expect(component.stressNodeCount()).toBe(0);
   });
 
-  it('debe permitir cambiar de ruta activa de navegacion', () => {
+  it('should allow switching active navigation path', () => {
     component.setNav('heap-memory');
     expect(component.activeNavPath()).toBe('heap-memory');
   });
 
-  it('debe procesar comandos CLI en la terminal', () => {
+  it('should process CLI commands in the terminal', () => {
     component.cmdInput.set('clear');
     component.onCommandSubmit();
     expect(component.terminalLogs().length).toBe(0);

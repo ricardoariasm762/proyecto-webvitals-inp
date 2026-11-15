@@ -16,29 +16,29 @@ describe('ThemeService', () => {
     localStorage.clear();
   });
 
-  it('debe crearse correctamente', () => {
+  it('should be created successfully', () => {
     expect(service).toBeTruthy();
   });
 
-  it('debe iniciar por defecto en modo system', () => {
+  it('should default to system mode initially', () => {
     expect(service.themeMode()).toBe('system');
   });
 
-  it('debe cambiar de modo a light y persistir en localStorage', () => {
+  it('should switch mode to light and persist in localStorage', () => {
     service.setMode('light');
     expect(service.themeMode()).toBe('light');
     expect(service.effectiveTheme()).toBe('light');
     expect(localStorage.getItem('nexus-theme-mode')).toBe('light');
   });
 
-  it('debe cambiar de modo a dark y persistir en localStorage', () => {
+  it('should switch mode to dark and persist in localStorage', () => {
     service.setMode('dark');
     expect(service.themeMode()).toBe('dark');
     expect(service.effectiveTheme()).toBe('dark');
     expect(localStorage.getItem('nexus-theme-mode')).toBe('dark');
   });
 
-  it('debe alternar modos secuencialmente con cycleMode', () => {
+  it('should cycle through modes sequentially with cycleMode', () => {
     service.setMode('system');
     service.cycleMode();
     expect(service.themeMode()).toBe('light');
@@ -48,7 +48,7 @@ describe('ThemeService', () => {
     expect(service.themeMode()).toBe('system');
   });
 
-  it('debe calcular descripcion adecuada para cada tema', () => {
+  it('should compute appropriate UI description for each theme', () => {
     service.setMode('dark');
     expect(service.themeDescription()).toBe('MODO OSCURO');
     service.setMode('light');
