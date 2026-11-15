@@ -2,21 +2,21 @@
 let activeTabId = null;
 let activeTabUrl = '';
 
-// Abrir el Side Panel cuando el usuario hace clic en el ícono de la extensión
+// Open Side Panel when user clicks the extension action icon
 if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) => {
-    console.warn('No se pudo configurar openPanelOnActionClick:', err);
+    console.warn('Failed to configure openPanelOnActionClick:', err);
   });
 }
 
-// Registrar cambios de pestaña activa
+// Track active tab switching
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   activeTabId = activeInfo.tabId;
   try {
     const tab = await chrome.tabs.get(activeTabId);
     activeTabUrl = tab.url || '';
   } catch (e) {
-    // La pestaña podría no estar disponible temporalmente
+    // The tab might be temporarily inaccessible
   }
 });
 
@@ -26,10 +26,10 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
-// Escuchar los mensajes provenientes de los content scripts
+// Listen to messages emitted by content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'METRICS_SNAPSHOT') {
-    // Filtrar: procesar y enviar al backend la pestaña que el usuario está viendo actualmente
+    // Process and dispatch telemetry for the tab currently viewed by the user
     if (sender.tab && (sender.tab.id === activeTabId || activeTabId === null)) {
       if (activeTabId === null) {
         activeTabId = sender.tab.id;
@@ -59,7 +59,7 @@ async function dispatchToBackend(telemetry) {
     if (response.ok) {
       const evaluationResult = await response.json();
 
-      // Guardar el resultado en almacenamiento local para que Angular lo lea
+      // Persist the evaluation result into local storage for Angular consumption
       chrome.storage.local.set({
         latestEvaluation: {
           ...evaluationResult,
@@ -71,10 +71,10 @@ async function dispatchToBackend(telemetry) {
       return;
     }
   } catch (error) {
-    console.warn('Backend Spring Boot no disponible en localhost:8081. Calculando estimación local...');
+    console.warn('Spring Boot backend unavailable on localhost:8081. Calculating local estimation...');
   }
 
-  // Fallback de contingencia: Si el backend está apagado, la extensión calcula la estimación local
+  // Contingency fallback: If remote backend is unreachable, calculate local heuristic estimation
   const localEvaluation = calculateLocalFallback(telemetry);
   chrome.storage.local.set({
     latestEvaluation: {

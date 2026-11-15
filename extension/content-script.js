@@ -1,37 +1,37 @@
 // content-script.js
 (() => {
-  // Evitar ejecuciones duplicadas en iframes anidados
+  // Prevent duplicate execution inside nested iframes
   if (window.top !== window) return;
 
   let longTaskDurationSum = 0;
   let blockingTimeSum = 0;
   let eventLoopLag = 0;
 
-  // 1. Monitoreo de Tareas Largas en el Main Thread (>50ms)
+  // 1. Monitor Long Tasks on the Main Thread (>50ms)
   try {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         longTaskDurationSum += entry.duration;
-        // El tiempo que supere los 50ms se considera bloqueo acumulado (TBT)
+        // Time exceeding 50ms is accumulated blocking time (TBT)
         blockingTimeSum += Math.max(0, entry.duration - 50);
       }
     });
     observer.observe({ type: 'longtask', buffered: true });
   } catch (err) {
-    // Algunos navegadores o contextos restringen longtask en páginas de sistema
+    // Some browsers or security contexts restrict longtask on system pages
   }
 
-  // 2. Muestreo periódico de latencia del Event Loop (Lag)
+  // 2. Periodic sampling of Event Loop latency (Lag)
   const sampleEventLoopLag = () => {
     const start = performance.now();
     setTimeout(() => {
       const elapsed = performance.now() - start;
-      eventLoopLag = Math.max(0, elapsed - 1.0); // Ajuste de tolerancia
+      eventLoopLag = Math.max(0, elapsed - 1.0); // Baseline tolerance adjustment
     }, 0);
   };
   setInterval(sampleEventLoopLag, 1000);
 
-  // 3. Envío periódico de telemetría hacia el Background Service Worker
+  // 3. Periodic telemetry dispatch to Background Service Worker
   setInterval(() => {
     const domCount = document.getElementsByTagName('*').length;
     const payload = {
@@ -43,12 +43,12 @@
       eventLoopLagMs: parseFloat(eventLoopLag.toFixed(2))
     };
 
-    // Reiniciar contadores acumulativos de ventana
+    // Reset window accumulator counters
     longTaskDurationSum = 0;
     blockingTimeSum = 0;
 
     chrome.runtime.sendMessage(payload).catch(() => {
-      // Manejar desconexión temporal del background worker si está inactivo
+      // Handle temporary background worker inactivity
     });
   }, 3000);
 })();
