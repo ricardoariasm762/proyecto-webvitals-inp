@@ -1,3 +1,6 @@
+export type GrpcConnectionStatus = 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'ERROR';
+export type SocketConnectionStatus = 'CONNECTED' | 'DISCONNECTED' | 'CONNECTING' | 'RECONNECTING';
+
 export interface PerformanceTelemetryRequest {
   sessionId: string;
   urlPath: string;
