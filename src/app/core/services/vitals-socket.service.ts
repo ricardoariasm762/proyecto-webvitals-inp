@@ -136,6 +136,19 @@ export class VitalsSocketService implements OnDestroy {
   }
 
   /**
+   * Applies Exponential Moving Average (EMA) smoothing to the oscilloscope buffer
+   */
+  public getSmoothedBuffer(alpha: number = 0.3): number[] {
+    const raw = this.oscilloscopeBuffer();
+    if (raw.length === 0) return [];
+    const smoothed: number[] = [raw[0]];
+    for (let i = 1; i < raw.length; i++) {
+      smoothed.push(Number((alpha * raw[i] + (1 - alpha) * smoothed[i - 1]).toFixed(1)));
+    }
+    return smoothed;
+  }
+
+  /**
    * Manually disconnects the STOMP client
    */
   public disconnect(): void {
