@@ -9,13 +9,13 @@ export type ActiveTheme = 'light' | 'dark';
 export class ThemeService {
   private readonly STORAGE_KEY = 'nexus-theme-mode';
 
-  // Modo configurado por el usuario ('system', 'light', 'dark')
+  // User configured theme mode ('system', 'light', 'dark')
   readonly themeMode = signal<ThemeMode>(this.getInitialMode());
 
-  // Estado del sistema operativo
+  // Operating system preference state
   readonly systemPrefersDark = signal<boolean>(this.checkSystemDark());
 
-  // Tema efectivo final aplicado al DOM
+  // Final effective theme applied to the DOM
   readonly effectiveTheme = computed<ActiveTheme>(() => {
     const mode = this.themeMode();
     if (mode === 'system') {
@@ -24,7 +24,7 @@ export class ThemeService {
     return mode;
   });
 
-  // Texto descriptivo para la UI
+  // Descriptive text for the UI (User facing)
   readonly themeDescription = computed<string>(() => {
     const mode = this.themeMode();
     const effective = this.effectiveTheme();
@@ -40,7 +40,7 @@ export class ThemeService {
   constructor() {
     this.initSystemListener();
 
-    // Efecto reactivo para actualizar clases en <html> y <body>
+    // Reactive effect to update classes on <html> and <body>
     effect(() => {
       const active = this.effectiveTheme();
       this.applyThemeToDom(active);
@@ -61,7 +61,7 @@ export class ThemeService {
     if (typeof window !== 'undefined' && window.matchMedia) {
       return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return true; // Default oscuro
+    return true; // Default dark
   }
 
   private initSystemListener(): void {
