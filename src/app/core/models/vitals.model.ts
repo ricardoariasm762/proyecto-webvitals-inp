@@ -41,3 +41,15 @@ export interface WorkerMessageResponse {
   primesCount?: number;
   error?: string;
 }
+
+export const INP_THRESHOLDS = {
+  GOOD_MAX: 200.0,
+  NEEDS_IMPROVEMENT_MAX: 500.0,
+  FRAME_BUDGET_60FPS: 16.67
+} as const;
+
+export const EVENT_LOOP_THRESHOLDS = {
+  LONG_TASK_LIMIT: 50.0,
+  WARNING_LAG_LIMIT: 25.0,
+  CRITICAL_LAG_LIMIT: 100.0
+} as const;
