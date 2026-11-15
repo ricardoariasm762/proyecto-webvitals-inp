@@ -81,6 +81,21 @@ export class VitalsTelemetryService {
   }
 
   /**
+   * Serializes current performance snapshots into a formatted JSON string for export
+   */
+  public exportTelemetryJson(snapshots: any[]): string {
+    return JSON.stringify(
+      {
+        exportedAt: new Date().toISOString(),
+        totalSnapshots: snapshots.length,
+        snapshots
+      },
+      null,
+      2
+    );
+  }
+
+  /**
    * Client-side heuristic fallback when the remote backend is unreachable
    */
   private calculateLocalFallback(request: PerformanceTelemetryRequest): OptimizationRecommendationResponse {
