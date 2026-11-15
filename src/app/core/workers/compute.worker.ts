@@ -5,7 +5,7 @@ addEventListener('message', ({ data }: MessageEvent<{ type?: string; iterations?
   const startTime = performance.now();
 
   let primesCount = 0;
-  // Algoritmo de cómputo intensivo de CPU para simular carga pesada sin tocar el DOM
+  // CPU-intensive compute algorithm to simulate heavy load without touching the DOM
   for (let i = 2; i <= iterations; i++) {
     let isPrime = true;
     const limit = Math.floor(Math.sqrt(i));
