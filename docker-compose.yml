@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # 1. Relational database for telemetry persistence and INP diagnostics
+  postgres:
+    image: postgres:16-alpine
+    container_name: webvitals_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: webvitals_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d webvitals_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vitals-net
+
+  # 2. Inference server Spring Boot 3 + gRPC Server + WebSocket Broker
+  backend:
+    build:
+      context: ../webvitals_backend
+      dockerfile: Dockerfile
+    container_name: webvitals_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/webvitals_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      SERVER_PORT: 8081
+      GRPC_SERVER_PORT: 9090
+    ports:
+      - "8081:8081"   # REST APIs & WebSocket STOMP (/ws-vitals)
+      - "9090:9090"   # Native gRPC Server (HTTP/2 binary)
+    networks:
+      - vitals-net
+
+  # 3. Envoy Proxy: Translator gRPC-Web (HTTP/1.1 CORS) -> Native gRPC (HTTP/2 backend:9090)
+  envoy:
+    image: envoyproxy/envoy:v1.30-latest
+    container_name: webvitals_envoy
+    restart: unless-stopped
+    depends_on:
+      - backend
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml:ro
+    ports:
+      - "8080:8080"   # gRPC-Web Ingress for web browsers
+      - "9901:9901"   # Envoy Administration Console
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml"]
+    networks:
+      - vitals-net
+
+  # 4. Angular Standalone frontend served on high-performance Nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webvitals_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+      - envoy
+    ports:
+      - "80:80"       # Angular Web Application
+      - "4200:80"     # Alternative development port
+    networks:
+      - vitals-net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  vitals-net:
+    driver: bridge
