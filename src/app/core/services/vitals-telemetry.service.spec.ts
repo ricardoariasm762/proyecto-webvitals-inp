@@ -74,4 +74,14 @@ describe('VitalsTelemetryService', () => {
     const req = httpTesting.expectOne('http://localhost:8081/api/vitals/evaluate');
     req.error(new ProgressEvent('error'));
   });
+
+  it('should format and export telemetry snapshot array to JSON string', () => {
+    const snapshots = [
+      { timestamp: 1000, eventLoopLagMs: 5.5, longTaskDurationMs: 60.0 }
+    ];
+    const exported = service.exportTelemetryJson(snapshots);
+    expect(exported).toContain('totalSnapshots');
+    expect(exported).toContain('exportedAt');
+    expect(JSON.parse(exported).totalSnapshots).toBe(1);
+  });
 });
