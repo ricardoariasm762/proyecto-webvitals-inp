@@ -4,7 +4,7 @@ import { Injectable, OnDestroy, signal } from '@angular/core';
   providedIn: 'root'
 })
 export class PerformanceObserverService implements OnDestroy {
-  // Señales reactivas del estado de telemetría en tiempo real
+  // Reactive signals for real-time telemetry state
   readonly lastLongTaskDuration = signal<number>(0);
   readonly totalBlockingTime = signal<number>(0);
   readonly domNodeCount = signal<number>(0);
@@ -22,7 +22,7 @@ export class PerformanceObserverService implements OnDestroy {
   }
 
   /**
-   * Inicializa la API nativa de PerformanceObserver para 'longtask'
+   * Initializes native PerformanceObserver API for 'longtask'
    */
   private initLongTaskObserver(): void {
     if (
@@ -37,7 +37,7 @@ export class PerformanceObserverService implements OnDestroy {
             const duration = Number(entry.duration.toFixed(2));
             this.lastLongTaskDuration.set(duration);
 
-            // Total Blocking Time: parte de la tarea pesada que excede los 50ms
+            // Total Blocking Time: portion of the long task exceeding 50ms
             const blocking = Math.max(0, duration - 50);
             this.totalBlockingTime.update((current) => Number((current + blocking).toFixed(2)));
           }
@@ -46,24 +46,24 @@ export class PerformanceObserverService implements OnDestroy {
         this.observer.observe({ entryTypes: ['longtask'] });
         this.isLongTaskSupported.set(true);
       } catch (err) {
-        console.warn('No se pudo inicializar PerformanceObserver para longtask:', err);
+        console.warn('Unable to initialize PerformanceObserver for longtask:', err);
         this.isLongTaskSupported.set(false);
       }
     } else {
-      console.warn('La API de Long Tasks no es soportada en este entorno de navegador.');
+      console.warn('Long Tasks API is not supported in this browser environment.');
       this.isLongTaskSupported.set(false);
     }
   }
 
   /**
-   * Monitoreo de latencia del Event Loop con setTimeout(..., 0)
+   * Monitors Event Loop lag via setTimeout(..., 0)
    */
   private startEventLoopLagMonitor(): void {
     this.lagIntervalId = setInterval(() => {
       const start = performance.now();
       setTimeout(() => {
         const elapsed = performance.now() - start;
-        // La tolerancia base estándar de ejecución inmediata ronda 1-4ms
+        // Standard baseline immediate execution overhead is ~1-4ms
         const lag = Math.max(0, elapsed - 2);
         this.eventLoopLag.set(Number(lag.toFixed(2)));
       }, 0);
@@ -71,7 +71,7 @@ export class PerformanceObserverService implements OnDestroy {
   }
 
   /**
-   * Conteo periódico y reactivo de nodos en el árbol DOM
+   * Periodic and reactive DOM node count monitoring
    */
   private startDomNodeCountMonitor(): void {
     this.updateDomNodeCount();
@@ -81,7 +81,7 @@ export class PerformanceObserverService implements OnDestroy {
   }
 
   /**
-   * Actualiza inmediatamente el conteo de elementos DOM
+   * Immediately updates DOM element count
    */
   public updateDomNodeCount(): number {
     if (typeof document !== 'undefined') {
@@ -93,8 +93,8 @@ export class PerformanceObserverService implements OnDestroy {
   }
 
   /**
-   * Permite registrar manualmente la duración de una tarea cuando
-   * el navegador simula o no reporta a tiempo el callback de Long Task
+   * Manually records a task duration when
+   * synthetic tasks or browser callbacks are not immediately triggered
    */
   public recordManualTask(durationMs: number): void {
     const duration = Number(durationMs.toFixed(2));
@@ -104,7 +104,7 @@ export class PerformanceObserverService implements OnDestroy {
   }
 
   /**
-   * Reinicia los acumuladores de tiempo de bloqueo
+   * Resets blocking time accumulators
    */
   public resetMetrics(): void {
     this.lastLongTaskDuration.set(0);
