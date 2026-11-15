@@ -39,5 +39,11 @@ describe('VitalsSocketService', () => {
     expect(service.isConnected()).toBe(false);
     expect(service.connectionStatus()).toBe('DISCONNECTED');
   });
+
+  it('should compute smoothed buffer values using exponential moving average', () => {
+    const smoothed = service.getSmoothedBuffer(0.5);
+    expect(smoothed.length).toBe(48);
+    expect(smoothed[0]).toBe(16.6);
+  });
 });
 
