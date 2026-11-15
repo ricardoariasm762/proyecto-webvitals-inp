@@ -6,5 +6,5 @@ const targetDir = path.resolve(__dirname, 'extension/ui');
 
 if (fs.existsSync(browserDir)) {
   fs.cpSync(browserDir, targetDir, { recursive: true });
-  console.log('Archivos de compilación de Angular copiados a extension/ui/');
+  console.log('Angular build artifacts successfully copied to extension/ui/');
 }
