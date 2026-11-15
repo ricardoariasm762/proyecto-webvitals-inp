@@ -16,7 +16,7 @@ export class VitalsTelemetryService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = 'http://localhost:8081/api/vitals';
 
-  // Señales reactivas para la extensión de Chrome
+  // Reactive signals for Chrome extension runtime
   readonly currentAudit = signal<any>(null);
   readonly isRunningInExtension = signal<boolean>(false);
 
@@ -25,20 +25,20 @@ export class VitalsTelemetryService {
   }
 
   /**
-   * Conecta con el almacenamiento local de Chrome si la app corre como Side Panel o Popup
+   * Connects to Chrome extension local storage if running as a Side Panel or Popup
    */
   private listenToExtensionStorage(): void {
     if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
       this.isRunningInExtension.set(true);
 
-      // 1. Obtener la última evaluación almacenada
+      // 1. Retrieve the latest stored evaluation
       chrome.storage.local.get(['latestEvaluation'], (result: any) => {
         if (result?.latestEvaluation) {
           this.currentAudit.set(result.latestEvaluation);
         }
       });
 
-      // 2. Escuchar actualizaciones en vivo producidas por el service worker
+      // 2. Listen to live updates emitted by the service worker
       chrome.storage.onChanged.addListener((changes: any, area: string) => {
         if (area === 'local' && changes?.latestEvaluation) {
           this.currentAudit.set(changes.latestEvaluation.newValue);
@@ -48,31 +48,31 @@ export class VitalsTelemetryService {
   }
 
   /**
-   * Envía la telemetría recolectada al modelo de IA en Spring Boot
+   * Dispatches collected telemetry payload to Spring Boot AI inference backend
    */
   public evaluateTelemetry(request: PerformanceTelemetryRequest): Observable<OptimizationRecommendationResponse> {
     return this.http.post<OptimizationRecommendationResponse>(`${this.baseUrl}/evaluate`, request).pipe(
       catchError((error) => {
-        console.warn('Backend Spring Boot no disponible en localhost:8081. Activando respuesta heurística local:', error);
+        console.warn('Spring Boot backend unavailable on localhost:8081. Triggering local heuristic fallback:', error);
         return of(this.calculateLocalFallback(request));
       })
     );
   }
 
   /**
-   * Obtiene el histórico temporal de métricas de una sesión
+   * Retrieves historical time-series metrics for a given session
    */
   public getSessionMetrics(sessionId: string): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/metrics/session/${sessionId}`).pipe(
       catchError((error) => {
-        console.warn('Error al consultar métricas históricas de la sesión:', error);
+        console.warn('Error fetching historical session metrics:', error);
         return of([]);
       })
     );
   }
 
   /**
-   * Comprobación rápida de estado del backend
+   * Quick backend health probe
    */
   public checkHealth(): Observable<{ status: string; service?: string }> {
     return this.http.get<{ status: string; service?: string }>(`${this.baseUrl}/health`).pipe(
@@ -81,7 +81,7 @@ export class VitalsTelemetryService {
   }
 
   /**
-   * Fallback heurístico en el cliente cuando el backend está temporalmente apagado
+   * Client-side heuristic fallback when the remote backend is unreachable
    */
   private calculateLocalFallback(request: PerformanceTelemetryRequest): OptimizationRecommendationResponse {
     const domPenalty = (request.domNodeCount / 1000.0) * 8.5;
