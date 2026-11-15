@@ -14,6 +14,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PerformanceObserverService } from '../../core/services/performance-observer.service';
 import { VitalsTelemetryService } from '../../core/services/vitals-telemetry.service';
+import { VitalsSocketService } from '../../core/services/vitals-socket.service';
+import { VitalsGrpcClientService } from '../../core/services/vitals-grpc-client.service';
 import { ThemeService, ThemeMode } from '../../core/services/theme.service';
 import {
   OptimizationRecommendationResponse,
@@ -42,16 +44,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected readonly perf = inject(PerformanceObserverService);
   protected readonly theme = inject(ThemeService);
   private readonly telemetryService = inject(VitalsTelemetryService);
+  protected readonly socketService = inject(VitalsSocketService);
+  private readonly grpcClient = inject(VitalsGrpcClientService);
 
   @ViewChild('terminalContainer') private terminalContainer?: ElementRef<HTMLDivElement>;
 
-  // Identificador de sesión único
+  // Unique session identifier
   readonly sessionId = 'NEXUS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  // Navegación lateral activa
+  // Active sidebar navigation
   readonly activeNavPath = signal<string>('runtime-telemetry');
 
-  // Estados de control del benchmark
+  // Benchmark control states
   readonly workloadIntensity = signal<number>(4_000_000);
   readonly isProcessing = signal<boolean>(false);
   readonly activeMode = signal<'IDLE' | 'MAIN_THREAD' | 'WORKER'>('IDLE');
@@ -60,11 +64,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
   readonly triggerStatus = signal<string>('READY // LISTENING ON MOUSE & TOUCH');
   readonly triggerStatusClass = signal<string>('text-secondary-fixed');
 
-  // Señales de la extensión de Chrome
+  // Chrome extension reactive signals
   readonly currentAudit = this.telemetryService.currentAudit;
   readonly isRunningInExtension = this.telemetryService.isRunningInExtension;
 
-  // Estado del backend y recomendación
+  // Backend and recommendation state
   readonly backendStatus = signal<'ONLINE' | 'OFFLINE' | 'CHECKING'>('CHECKING');
   readonly latestRecommendation = signal<OptimizationRecommendationResponse>({
     predictedInpMs: 42.0,
@@ -74,10 +78,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     yieldMainThread: false
   });
 
-  // Historial de evaluaciones
+  // Evaluation history
   readonly history = signal<PerformanceSnapshot[]>([]);
 
-  // Telemetría en tiempo real
+  // Real-time telemetry
   readonly currentFps = signal<number>(60);
   readonly syncUtc = signal<string>('');
   readonly epochCounter = signal<string>('+00:14:28.902');
@@ -88,7 +92,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   readonly peakLatency = signal<number>(64.2);
   readonly avgLatency = signal<number>(11.8);
 
-  // Oscilloscope cluster bars (48 barras continuas)
+  // Oscilloscope cluster bars (48 continuous bars)
   readonly oscBarHeights = signal<number[]>(this.generateInitialOscBars());
 
   // Terminal Ticker Logs
@@ -123,14 +127,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
   ]);
 
-  // Entrada de comandos CLI
+  // CLI command input
   readonly cmdInput = signal<string>('execute_patch --strategy=scheduler.yield()');
 
   // Math utilities for templates
   protected readonly mathMin = Math.min;
   protected readonly mathMax = Math.max;
 
-  // Timers e IDs
+  // Timers and IDs
   private worker: Worker | null = null;
   private fpsAnimFrameId: number | null = null;
   private lastFpsTimestamp = performance.now();
@@ -140,7 +144,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private oscIntervalId: ReturnType<typeof setInterval> | null = null;
   private epochSeconds = 868.902;
 
-  // Señales calculadas
+  // Computed signals
   readonly vitalsClass = computed(() => {
     const category = this.latestRecommendation().vitalsCategory;
     if (category === 'GOOD') return 'vitals-good';
@@ -225,9 +229,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
         }
       }
     });
+
+    // Reactive effect: Real-time WebSocket fan-out from STOMP broker (zero polling)
+    effect(() => {
+      const verdict = this.socketService.liveVerdict();
+      if (verdict) {
+        this.latestRecommendation.set(verdict);
+        this.backendStatus.set('ONLINE');
+
+        const currentBars = [...this.oscBarHeights()];
+        currentBars.shift();
+        const height = Math.min(100, Math.max(14, Math.floor((verdict.predictedInpMs / 400) * 80)));
+        currentBars.push(height);
+        this.oscBarHeights.set(currentBars);
+
+        this.history.update((prev) => [
+          {
+            timestamp: Date.now(),
+            eventLoopLagMs: this.perf.eventLoopLag(),
+            longTaskDurationMs: this.perf.lastLongTaskDuration(),
+            blockingTimeMs: this.perf.totalBlockingTime(),
+            domNodeCount: this.perf.domNodeCount(),
+            predictedInpMs: verdict.predictedInpMs,
+            category: verdict.vitalsCategory,
+            mode: this.activeMode()
+          },
+          ...prev.slice(0, 7)
+        ]);
+
+        this.appendLog({
+          time: this.getCurrentTimestamp(),
+          level: verdict.vitalsCategory === 'GOOD' ? 'OPTIMAL' : verdict.vitalsCategory === 'NEEDS_IMPROVEMENT' ? 'ADVISORY' : 'CRITICAL',
+          message: `[WS_BROKER // PUSH] INP inference received via /topic/vitals/${this.sessionId}: ${verdict.predictedInpMs}ms (${verdict.vitalsCategory}).`,
+          highlight: verdict.architecturalAdvice
+        });
+      }
+    });
   }
 
   ngOnInit(): void {
+    this.socketService.subscribeToSession(this.sessionId);
     this.checkBackendHealth();
     this.startClock();
     this.startEpochCounter();
@@ -326,13 +367,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         };
 
         this.worker.onerror = (err) => {
-          console.error('Error en Web Worker:', err);
+          console.error('Web Worker error:', err);
           this.isProcessing.set(false);
           this.triggerStatus.set('WORKER ERROR // EXECUTION FAILED');
           this.triggerStatusClass.set('text-error');
         };
       } catch (e) {
-        console.warn('No se pudo instanciar el Web Worker:', e);
+        console.warn('Unable to instantiate Web Worker:', e);
       }
     }
   }
@@ -470,7 +511,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       optimizationApplied
     };
 
-    this.telemetryService.evaluateTelemetry(request).subscribe({
+    // 1. High-frequency binary ingestion via gRPC-Web to Envoy Proxy (:8080)
+    this.grpcClient.evaluateTelemetry(request).subscribe({
       next: (response) => {
         this.latestRecommendation.set(response);
         this.backendStatus.set('ONLINE');
@@ -490,7 +532,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
         ]);
       },
       error: () => {
-        this.backendStatus.set('OFFLINE');
+        // Fallback to REST if Envoy/gRPC-Web is not active in the current environment
+        this.telemetryService.evaluateTelemetry(request).subscribe({
+          next: (response) => {
+            this.latestRecommendation.set(response);
+            this.backendStatus.set('ONLINE');
+
+            this.history.update((prev) => [
+              {
+                timestamp: Date.now(),
+                eventLoopLagMs: request.eventLoopLagMs,
+                longTaskDurationMs: request.longTaskDurationMs,
+                blockingTimeMs: request.blockingTimeMs,
+                domNodeCount: request.domNodeCount,
+                predictedInpMs: response.predictedInpMs,
+                category: response.vitalsCategory,
+                mode: this.activeMode()
+              },
+              ...prev.slice(0, 7)
+            ]);
+          },
+          error: () => {
+            this.backendStatus.set('OFFLINE');
+          }
+        });
       }
     });
   }
