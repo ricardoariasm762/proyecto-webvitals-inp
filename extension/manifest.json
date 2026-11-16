@@ -11,7 +11,8 @@
   ],
   "host_permissions": [
     "<all_urls>",
-    "http://localhost:8081/*"
+    "http://localhost:8081/*",
+    "https://webvitals-backend.onrender.com/*"
   ],
   "background": {
     "service_worker": "background.js",

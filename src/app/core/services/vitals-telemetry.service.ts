@@ -6,6 +6,7 @@ import {
   OptimizationRecommendationResponse,
   PerformanceTelemetryRequest
 } from '../models/vitals.model';
+import { environment } from '../../../environments/environment';
 
 declare const chrome: any;
 
@@ -14,7 +15,7 @@ declare const chrome: any;
 })
 export class VitalsTelemetryService {
   private readonly http = inject(HttpClient);
-  private readonly baseUrl = 'http://localhost:8081/api/vitals';
+  private readonly baseUrl = environment.apiUrl;
 
   // Reactive signals for Chrome extension runtime
   readonly currentAudit = signal<any>(null);
@@ -53,7 +54,7 @@ export class VitalsTelemetryService {
   public evaluateTelemetry(request: PerformanceTelemetryRequest): Observable<OptimizationRecommendationResponse> {
     return this.http.post<OptimizationRecommendationResponse>(`${this.baseUrl}/evaluate`, request).pipe(
       catchError((error) => {
-        console.warn('Spring Boot backend unavailable on localhost:8081. Triggering local heuristic fallback:', error);
+        console.warn(`Spring Boot backend unavailable at ${this.baseUrl}. Triggering local heuristic fallback:`, error);
         return of(this.calculateLocalFallback(request));
       })
     );

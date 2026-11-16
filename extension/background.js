@@ -48,15 +48,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+const PRIMARY_BACKEND_URL = 'https://webvitals-backend.onrender.com/api/vitals/evaluate';
+const LOCAL_BACKEND_URL = 'http://localhost:8081/api/vitals/evaluate';
+
 async function dispatchToBackend(telemetry) {
   try {
-    const response = await fetch('http://localhost:8081/api/vitals/evaluate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(telemetry)
-    });
+    // Attempt dispatch to cloud backend on Render first, fallback to localhost if needed
+    let response;
+    try {
+      response = await fetch(PRIMARY_BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(telemetry)
+      });
+    } catch (netErr) {
+      // If cloud is unavailable, try local backend
+      response = await fetch(LOCAL_BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(telemetry)
+      });
+    }
 
-    if (response.ok) {
+    if (response && response.ok) {
       const evaluationResult = await response.json();
 
       // Persist the evaluation result into local storage for Angular consumption
@@ -71,7 +85,7 @@ async function dispatchToBackend(telemetry) {
       return;
     }
   } catch (error) {
-    console.warn('Spring Boot backend unavailable on localhost:8081. Calculating local estimation...');
+    console.warn('Backend unavailable (Render/Local). Calculating local estimation...');
   }
 
   // Contingency fallback: If remote backend is unreachable, calculate local heuristic estimation

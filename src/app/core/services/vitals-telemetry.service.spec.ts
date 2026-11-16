@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { VitalsTelemetryService } from './vitals-telemetry.service';
 import { PerformanceTelemetryRequest } from '../models/vitals.model';
+import { environment } from '../../../environments/environment';
 
 describe('VitalsTelemetryService', () => {
   let service: VitalsTelemetryService;
@@ -44,7 +45,7 @@ describe('VitalsTelemetryService', () => {
       expect(res.predictedInpMs).toBe(110);
     });
 
-    const req = httpTesting.expectOne('http://localhost:8081/api/vitals/evaluate');
+    const req = httpTesting.expectOne(`${environment.apiUrl}/evaluate`);
     expect(req.request.method).toBe('POST');
     req.flush({
       predictedInpMs: 110,
@@ -71,7 +72,7 @@ describe('VitalsTelemetryService', () => {
       expect(res.architecturalAdvice).toContain('Diagnóstico Local');
     });
 
-    const req = httpTesting.expectOne('http://localhost:8081/api/vitals/evaluate');
+    const req = httpTesting.expectOne(`${environment.apiUrl}/evaluate`);
     req.error(new ProgressEvent('error'));
   });
 

@@ -7,13 +7,14 @@ import {
   OptimizationRecommendationResponse,
   PerformanceTelemetryRequest
 } from '../models/vitals.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class VitalsGrpcClientService {
-  // Envoy proxy translator for gRPC-Web on port 8080
-  private readonly envoyProxyUrl = 'http://localhost:8080';
+  // Envoy proxy translator for gRPC-Web
+  private readonly envoyProxyUrl = environment.grpcProxyUrl;
   private readonly client: VitalsAuditorServiceClient;
 
   readonly isSending = signal<boolean>(false);

@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy, signal } from '@angular/core';
 import { Client, IMessage, StompSubscription } from '@stomp/stompjs';
 import { OptimizationRecommendationResponse } from '../models/vitals.model';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
@@ -36,8 +37,7 @@ export class VitalsSocketService implements OnDestroy {
    * Configures STOMP client with resilient automatic reconnection
    */
   private initStompClient(): void {
-    const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-    const brokerUrl = isHttps ? 'wss://localhost:8081/ws-vitals' : 'ws://localhost:8081/ws-vitals';
+    const brokerUrl = environment.wsUrl;
 
     this.client = new Client({
       brokerURL: brokerUrl,
@@ -46,7 +46,7 @@ export class VitalsSocketService implements OnDestroy {
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
       debug: (msg: string) => {
-        if (msg.includes('ERROR') || msg.includes('Connected')) {
+        if (!environment.production || msg.includes('ERROR') || msg.includes('Connected')) {
           console.debug('[VitalsSocketService]', msg);
         }
       }
