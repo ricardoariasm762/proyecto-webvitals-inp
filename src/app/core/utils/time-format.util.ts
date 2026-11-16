@@ -30,3 +30,4 @@ export function formatTerminalTimestamp(date: Date = new Date()): string {
   const ms = String(Math.floor(date.getMilliseconds() / 10)).padStart(2, '0');
   return `[00:${mm}:${ss}.${ms}]`;
 }
+

@@ -14,3 +14,4 @@ export function classifyFrameRate(fps: number): 'STABLE' | 'JANK' | 'CRITICAL' {
   if (fps >= 30) return 'JANK';
   return 'CRITICAL';
 }
+

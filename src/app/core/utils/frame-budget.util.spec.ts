@@ -18,3 +18,4 @@ describe('frame-budget.util', () => {
     expect(classifyFrameRate(15)).toBe('CRITICAL');
   });
 });
+

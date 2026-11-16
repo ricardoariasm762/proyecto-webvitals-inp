@@ -19,3 +19,4 @@ describe('time-format.util', () => {
     expect(result).toMatch(/^\[00:\d{2}:\d{2}\.\d{2}\]$/);
   });
 });
+

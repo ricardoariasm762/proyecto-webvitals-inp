@@ -37,3 +37,4 @@ export class CommandRegistry {
     return this.COMMANDS.some((c) => trimmed.includes(c.command.toLowerCase()));
   }
 }
+

@@ -16,3 +16,4 @@ describe('CommandRegistry', () => {
     expect(CommandRegistry.isRecognized('invalid_random_cmd')).toBe(false);
   });
 });
+

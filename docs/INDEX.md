@@ -20,3 +20,4 @@ Este directorio contiene la documentación completa de diseño, arquitectura, op
 4. **[Monitoreo del Event Loop y Detección de Bloqueos](EVENT_LOOP_MONITORING.md)**:
    - API nativa `PerformanceObserver` y cálculo de Total Blocking Time (TBT).
    - Algoritmo de muestreo adaptativo de `Event Loop Lag` con `setTimeout(..., 0)`.
+

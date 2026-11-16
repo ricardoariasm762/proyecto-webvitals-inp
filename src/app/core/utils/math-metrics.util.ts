@@ -24,3 +24,4 @@ export function calculatePercentile(values: number[], percentile: number = 75): 
   const index = Math.ceil((percentile / 100) * sorted.length) - 1;
   return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
 }
+

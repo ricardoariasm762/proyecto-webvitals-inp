@@ -17,3 +17,4 @@ Para resolver esta limitación, el proyecto implementa un proxy **Envoy** interm
 Los stubs generados en `src/proto/`:
 - `vitals_telemetry_pb.ts`: Modela los mensajes `TelemetryFrame`, `OptimizationVerdict` y `StreamSummary` utilizando `google-protobuf`.
 - `vitals_telemetry_grpc_web_pb.ts`: Expone el cliente `VitalsAuditorServiceClient` con wrappers de `Promise` nativos para consumo reactivo en Angular.
+

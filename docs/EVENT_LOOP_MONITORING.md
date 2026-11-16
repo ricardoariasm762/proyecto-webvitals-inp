@@ -21,3 +21,4 @@ El retardo o *lag* del bucle de eventos representa la demora entre la programaci
 $$\text{Lag} = \max(0, (\text{now} - \text{start}) - \text{baseline})$$
 
 Un retraso sostenido superior a 25ms indica que la cola de microtareas o el hilo de renderizado están saturados, anticipando una degradación inminente en la interacción del usuario (INP).
+
